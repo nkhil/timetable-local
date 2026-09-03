@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Harringay Departures</title>
+<style>
+:root {
+  --bg: #0d1117;
+  --surface: #161b22;
+  --border: #30363d;
+  --text-primary: #e6edf3;
+  --text-muted: #8b949e;
+  --urgent: #f85149;
+  --soonest-border: #388bfd;
+  --soonest-bg: #1c2128;
+  --gn-bg: #1f4e79;
+  --tl-bg: #2d5a3d;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+  min-height: 100vh;
+}
+header {
+  text-align: center;
+  padding: 1.25rem 1rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+#clock {
+  font-size: 2.8rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  font-weight: 300;
+}
+#day-label {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  margin-top: 0.3rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+#station-label {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  margin-top: 0.2rem;
+}
+#board {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  padding: 1rem;
+  max-width: 860px;
+  margin: 0 auto;
+}
+@media (max-width: 580px) {
+  #board { grid-template-columns: 1fr; }
+  #clock { font-size: 2rem; }
+}
+.panel-title {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  margin-bottom: 0.6rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--border);
+}
+.train-row {
+  display: grid;
+  grid-template-columns: 3.2rem 1fr auto auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 6px;
+  margin-bottom: 0.3rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  transition: border-color 0.2s;
+}
+.train-row.soonest {
+  background: var(--soonest-bg);
+  border-color: var(--soonest-border);
+}
+.depart {
+  font-size: 1.1rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.dest-block {
+  overflow: hidden;
+}
+.dest-name {
+  font-size: 0.85rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dest-arr {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+.badge {
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 2px 5px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+.badge-GN { background: var(--gn-bg); color: #a8d8ff; }
+.badge-TL { background: var(--tl-bg); color: #a8f0c0; }
+.countdown {
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--text-muted);
+  min-width: 3.2rem;
+  white-space: nowrap;
+}
+.countdown.urgent {
+  color: var(--urgent);
+  font-weight: 700;
+}
+.no-trains {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  padding: 0.75rem 0;
+  text-align: center;
+}
+footer {
+  text-align: center;
+  padding: 1.5rem 1rem;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  border-top: 1px solid var(--border);
+  margin-top: 1rem;
+}
+footer code {
+  background: var(--surface);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+}
+</style>
+</head>
+<body>
+<header>
+  <div id="clock">--:--:--</div>
+  <div id="day-label"></div>
+  <div id="station-label">Harringay (HGY)</div>
+</header>
+<main id="board">
+  <section>
+    <div class="panel-title">To London</div>
+    <div id="panel-to_london"></div>
+  </section>
+  <section>
+    <div class="panel-title">From London</div>
+    <div id="panel-from_london"></div>
+  </section>
+</main>
+<footer>
+  Works offline &mdash; JSON is embedded directly in this file.<br>
+  If trains don&rsquo;t appear on <code>file://</code>, serve locally:
+  <code>python3 -m http.server 8080</code> then open <code>http://localhost:8080</code>
+</footer>
+<script>
+const TIMETABLE = {"weekday":{"to_london":[{"depart":"0006","dest_name":"Moorgate","dest_time":"0024","operator":"GN"},{"depart":"0020","dest_name":"Moorgate","dest_time":"0038","operator":"GN"},{"depart":"0434","dest_name":"Kings Cross","dest_time":"0446","operator":"GN"},{"depart":"0504","dest_name":"Kings Cross","dest_time":"0514","operator":"GN"},{"depart":"0536","dest_name":"Moorgate","dest_time":"0554","operator":"GN"},{"depart":"0550","dest_name":"Moorgate","dest_time":"0608","operator":"GN"},{"depart":"0605","dest_name":"Moorgate","dest_time":"0623","operator":"GN"},{"depart":"0612","dest_name":"Moorgate","dest_time":"0630","operator":"GN"},{"depart":"0620","dest_name":"Moorgate","dest_time":"0638","operator":"GN"},{"depart":"0635","dest_name":"Moorgate","dest_time":"0653","operator":"GN"},{"depart":"0642","dest_name":"Moorgate","dest_time":"0700","operator":"GN"},{"depart":"0650","dest_name":"Moorgate","dest_time":"0708","operator":"GN"},{"depart":"0705","dest_name":"Moorgate","dest_time":"0723","operator":"GN"},{"depart":"0713","dest_name":"Moorgate","dest_time":"0731","operator":"GN"},{"depart":"0720","dest_name":"Moorgate","dest_time":"0738","operator":"GN"},{"depart":"0734","dest_name":"Moorgate","dest_time":"0752","operator":"GN"},{"depart":"0746","dest_name":"Moorgate","dest_time":"0804","operator":"GN"},{"depart":"0752","dest_name":"Moorgate","dest_time":"0810","operator":"GN"},{"depart":"0804","dest_name":"Moorgate","dest_time":"0822","operator":"GN"},{"depart":"0814","dest_name":"Moorgate","dest_time":"0834","operator":"GN"},{"depart":"0822","dest_name":"Moorgate","dest_time":"0840","operator":"GN"},{"depart":"0835","dest_name":"Moorgate","dest_time":"0853","operator":"GN"},{"depart":"0843","dest_name":"Moorgate","dest_time":"0901","operator":"GN"},{"depart":"0850","dest_name":"Moorgate","dest_time":"0908","operator":"GN"},{"depart":"0905","dest_name":"Moorgate","dest_time":"0923","operator":"GN"},{"depart":"0913","dest_name":"Moorgate","dest_time":"0931","operator":"GN"},{"depart":"0920","dest_name":"Moorgate","dest_time":"0938","operator":"GN"},{"depart":"0935","dest_name":"Moorgate","dest_time":"0953","operator":"GN"},{"depart":"0943","dest_name":"Moorgate","dest_time":"1001","operator":"GN"},{"depart":"0950","dest_name":"Moorgate","dest_time":"1008","operator":"GN"},{"depart":"1005","dest_name":"Moorgate","dest_time":"1023","operator":"GN"},{"depart":"1020","dest_name":"Moorgate","dest_time":"1038","operator":"GN"},{"depart":"1035","dest_name":"Moorgate","dest_time":"1053","operator":"GN"},{"depart":"1050","dest_name":"Moorgate","dest_time":"1108","operator":"GN"},{"depart":"1105","dest_name":"Moorgate","dest_time":"1123","operator":"GN"},{"depart":"1120","dest_name":"Moorgate","dest_time":"1138","operator":"GN"},{"depart":"1135","dest_name":"Moorgate","dest_time":"1153","operator":"GN"},{"depart":"1150","dest_name":"Moorgate","dest_time":"1208","operator":"GN"},{"depart":"1205","dest_name":"Moorgate","dest_time":"1223","operator":"GN"},{"depart":"1220","dest_name":"Moorgate","dest_time":"1238","operator":"GN"},{"depart":"1235","dest_name":"Moorgate","dest_time":"1253","operator":"GN"},{"depart":"1250","dest_name":"Moorgate","dest_time":"1308","operator":"GN"},{"depart":"1305","dest_name":"Moorgate","dest_time":"1323","operator":"GN"},{"depart":"1320","dest_name":"Moorgate","dest_time":"1338","operator":"GN"},{"depart":"1335","dest_name":"Moorgate","dest_time":"1353","operator":"GN"},{"depart":"1350","dest_name":"Moorgate","dest_time":"1408","operator":"GN"},{"depart":"1405","dest_name":"Moorgate","dest_time":"1423","operator":"GN"},{"depart":"1420","dest_name":"Moorgate","dest_time":"1438","operator":"GN"},{"depart":"1435","dest_name":"Moorgate","dest_time":"1453","operator":"GN"},{"depart":"1450","dest_name":"Moorgate","dest_time":"1508","operator":"GN"},{"depart":"1505","dest_name":"Moorgate","dest_time":"1523","operator":"GN"},{"depart":"1520","dest_name":"Moorgate","dest_time":"1538","operator":"GN"},{"depart":"1535","dest_name":"Moorgate","dest_time":"1553","operator":"GN"},{"depart":"1550","dest_name":"Moorgate","dest_time":"1608","operator":"GN"},{"depart":"1605","dest_name":"Moorgate","dest_time":"1623","operator":"GN"},{"depart":"1620","dest_name":"Moorgate","dest_time":"1638","operator":"GN"},{"depart":"1635","dest_name":"Moorgate","dest_time":"1653","operator":"GN"},{"depart":"1649","dest_name":"Moorgate","dest_time":"1707","operator":"GN"},{"depart":"1705","dest_name":"Moorgate","dest_time":"1725","operator":"GN"},{"depart":"1711","dest_name":"Moorgate","dest_time":"1729","operator":"GN"},{"depart":"1719","dest_name":"Moorgate","dest_time":"1737","operator":"GN"},{"depart":"1731","dest_name":"Moorgate","dest_time":"1749","operator":"GN"},{"depart":"1745","dest_name":"Moorgate","dest_time":"1803","operator":"GN"},{"depart":"1801","dest_name":"Moorgate","dest_time":"1818","operator":"GN"},{"depart":"1811","dest_name":"Moorgate","dest_time":"1831","operator":"GN"},{"depart":"1820","dest_name":"Moorgate","dest_time":"1838","operator":"GN"},{"depart":"1835","dest_name":"Moorgate","dest_time":"1853","operator":"GN"},{"depart":"1841","dest_name":"Moorgate","dest_time":"1900","operator":"GN"},{"depart":"1850","dest_name":"Moorgate","dest_time":"1908","operator":"GN"},{"depart":"1911","dest_name":"Moorgate","dest_time":"1929","operator":"GN"},{"depart":"1920","dest_name":"Moorgate","dest_time":"1939","operator":"GN"},{"depart":"1935","dest_name":"Moorgate","dest_time":"1953","operator":"GN"},{"depart":"1950","dest_name":"Moorgate","dest_time":"2008","operator":"GN"},{"depart":"2005","dest_name":"Moorgate","dest_time":"2023","operator":"GN"},{"depart":"2020","dest_name":"Moorgate","dest_time":"2038","operator":"GN"},{"depart":"2035","dest_name":"Moorgate","dest_time":"2053","operator":"GN"},{"depart":"2050","dest_name":"Moorgate","dest_time":"2108","operator":"GN"},{"depart":"2105","dest_name":"Moorgate","dest_time":"2123","operator":"GN"},{"depart":"2120","dest_name":"Moorgate","dest_time":"2138","operator":"GN"},{"depart":"2135","dest_name":"Moorgate","dest_time":"2153","operator":"GN"},{"depart":"2150","dest_name":"Moorgate","dest_time":"2208","operator":"GN"},{"depart":"2205","dest_name":"Moorgate","dest_time":"2223","operator":"GN"},{"depart":"2220","dest_name":"Moorgate","dest_time":"2238","operator":"GN"},{"depart":"2235","dest_name":"Moorgate","dest_time":"2253","operator":"GN"},{"depart":"2251","dest_name":"Moorgate","dest_time":"2308","operator":"GN"},{"depart":"2305","dest_name":"Moorgate","dest_time":"2323","operator":"GN"},{"depart":"2320","dest_name":"Moorgate","dest_time":"2338","operator":"GN"},{"depart":"2335","dest_name":"Moorgate","dest_time":"2353","operator":"GN"},{"depart":"2350","dest_name":"Moorgate","dest_time":"0008","operator":"GN"}],"from_london":[{"depart":"0003","dest_name":"Stevenage","dest_time":"0053","operator":"GN"},{"depart":"0018","dest_name":"Welwyn Garden City","dest_time":"0051","operator":"GN"},{"depart":"0033","dest_name":"Stevenage","dest_time":"0121","operator":"GN"},{"depart":"0048","dest_name":"Welwyn Garden City","dest_time":"0121","operator":"GN"},{"depart":"0119","dest_name":"Hertford North","dest_time":"0151","operator":"GN"},{"depart":"0515","dest_name":"Hertford North","dest_time":"0550","operator":"GN"},{"depart":"0533","dest_name":"Stevenage","dest_time":"0621","operator":"GN"},{"depart":"0552","dest_name":"Hertford North","dest_time":"0624","operator":"GN"},{"depart":"0600","dest_name":"Welwyn Garden City","dest_time":"0633","operator":"GN"},{"depart":"0607","dest_name":"Stevenage","dest_time":"0655","operator":"GN"},{"depart":"0622","dest_name":"Hertford North","dest_time":"0657","operator":"GN"},{"depart":"0630","dest_name":"Welwyn Garden City","dest_time":"0703","operator":"GN"},{"depart":"0637","dest_name":"Stevenage","dest_time":"0725","operator":"GN"},{"depart":"0652","dest_name":"Hertford North","dest_time":"0727","operator":"GN"},{"depart":"0700","dest_name":"Welwyn Garden City","dest_time":"0733","operator":"GN"},{"depart":"0707","dest_name":"Stevenage","dest_time":"0756","operator":"GN"},{"depart":"0722","dest_name":"Hertford North","dest_time":"0754","operator":"GN"},{"depart":"0730","dest_name":"Welwyn Garden City","dest_time":"0803","operator":"GN"},{"depart":"0737","dest_name":"Stevenage","dest_time":"0825","operator":"GN"},{"depart":"0752","dest_name":"Hertford North","dest_time":"0824","operator":"GN"},{"depart":"0800","dest_name":"Welwyn Garden City","dest_time":"0833","operator":"GN"},{"depart":"0807","dest_name":"Stevenage","dest_time":"0855","operator":"GN"},{"depart":"0822","dest_name":"Hertford North","dest_time":"0854","operator":"GN"},{"depart":"0830","dest_name":"Welwyn Garden City","dest_time":"0903","operator":"GN"},{"depart":"0837","dest_name":"Stevenage","dest_time":"0925","operator":"GN"},{"depart":"0852","dest_name":"Hertford North","dest_time":"0927","operator":"GN"},{"depart":"0900","dest_name":"Welwyn Garden City","dest_time":"0935","operator":"GN"},{"depart":"0907","dest_name":"Stevenage","dest_time":"0955","operator":"GN"},{"depart":"0922","dest_name":"Hertford North","dest_time":"0957","operator":"GN"},{"depart":"0930","dest_name":"Welwyn Garden City","dest_time":"1005","operator":"GN"},{"depart":"0937","dest_name":"Stevenage","dest_time":"1025","operator":"GN"},{"depart":"0949","dest_name":"Welwyn Garden City","dest_time":"1022","operator":"GN"},{"depart":"1003","dest_name":"Stevenage","dest_time":"1051","operator":"GN"},{"depart":"1019","dest_name":"Welwyn Garden City","dest_time":"1052","operator":"GN"},{"depart":"1033","dest_name":"Stevenage","dest_time":"1121","operator":"GN"},{"depart":"1048","dest_name":"Welwyn Garden City","dest_time":"1121","operator":"GN"},{"depart":"1103","dest_name":"Stevenage","dest_time":"1151","operator":"GN"},{"depart":"1118","dest_name":"Welwyn Garden City","dest_time":"1151","operator":"GN"},{"depart":"1133","dest_name":"Stevenage","dest_time":"1221","operator":"GN"},{"depart":"1148","dest_name":"Welwyn Garden City","dest_time":"1221","operator":"GN"},{"depart":"1203","dest_name":"Stevenage","dest_time":"1251","operator":"GN"},{"depart":"1218","dest_name":"Welwyn Garden City","dest_time":"1251","operator":"GN"},{"depart":"1233","dest_name":"Stevenage","dest_time":"1321","operator":"GN"},{"depart":"1248","dest_name":"Welwyn Garden City","dest_time":"1321","operator":"GN"},{"depart":"1303","dest_name":"Stevenage","dest_time":"1351","operator":"GN"},{"depart":"1318","dest_name":"Welwyn Garden City","dest_time":"1351","operator":"GN"},{"depart":"1333","dest_name":"Stevenage","dest_time":"1421","operator":"GN"},{"depart":"1348","dest_name":"Welwyn Garden City","dest_time":"1421","operator":"GN"},{"depart":"1403","dest_name":"Stevenage","dest_time":"1451","operator":"GN"},{"depart":"1418","dest_name":"Welwyn Garden City","dest_time":"1451","operator":"GN"},{"depart":"1433","dest_name":"Stevenage","dest_time":"1522","operator":"GN"},{"depart":"1448","dest_name":"Welwyn Garden City","dest_time":"1521","operator":"GN"},{"depart":"1503","dest_name":"Stevenage","dest_time":"1551","operator":"GN"},{"depart":"1518","dest_name":"Welwyn Garden City","dest_time":"1551","operator":"GN"},{"depart":"1533","dest_name":"Stevenage","dest_time":"1621","operator":"GN"},{"depart":"1548","dest_name":"Welwyn Garden City","dest_time":"1621","operator":"GN"},{"depart":"1603","dest_name":"Stevenage","dest_time":"1651","operator":"GN"},{"depart":"1618","dest_name":"Welwyn Garden City","dest_time":"1651","operator":"GN"},{"depart":"1628","dest_name":"Stevenage","dest_time":"1719","operator":"GN"},{"depart":"1637","dest_name":"Welwyn Garden City","dest_time":"1710","operator":"GN"},{"depart":"1643","dest_name":"Hertford North","dest_time":"1720","operator":"GN"},{"depart":"1658","dest_name":"Stevenage","dest_time":"1749","operator":"GN"},{"depart":"1707","dest_name":"Welwyn Garden City","dest_time":"1740","operator":"GN"},{"depart":"1713","dest_name":"Hertford North","dest_time":"1750","operator":"GN"},{"depart":"1725","dest_name":"Enfield Chase","dest_time":"1744","operator":"GN"},{"depart":"1737","dest_name":"Welwyn Garden City","dest_time":"1810","operator":"GN"},{"depart":"1743","dest_name":"Hertford North","dest_time":"1820","operator":"GN"},{"depart":"1755","dest_name":"Enfield Chase","dest_time":"1814","operator":"GN"},{"depart":"1807","dest_name":"Welwyn Garden City","dest_time":"1840","operator":"GN"},{"depart":"1813","dest_name":"Hertford North","dest_time":"1850","operator":"GN"},{"depart":"1828","dest_name":"Stevenage","dest_time":"1919","operator":"GN"},{"depart":"1837","dest_name":"Welwyn Garden City","dest_time":"1910","operator":"GN"},{"depart":"1843","dest_name":"Hertford North","dest_time":"1920","operator":"GN"},{"depart":"1858","dest_name":"Stevenage","dest_time":"1951","operator":"GN"},{"depart":"1907","dest_name":"Welwyn Garden City","dest_time":"1940","operator":"GN"},{"depart":"1913","dest_name":"Hertford North","dest_time":"1950","operator":"GN"},{"depart":"1928","dest_name":"Stevenage","dest_time":"2019","operator":"GN"},{"depart":"1937","dest_name":"Welwyn Garden City","dest_time":"2010","operator":"GN"},{"depart":"1943","dest_name":"Hertford North","dest_time":"2020","operator":"GN"},{"depart":"1953","dest_name":"Welwyn Garden City","dest_time":"2026","operator":"GN"},{"depart":"2003","dest_name":"Stevenage","dest_time":"2051","operator":"GN"},{"depart":"2018","dest_name":"Welwyn Garden City","dest_time":"2051","operator":"GN"},{"depart":"2033","dest_name":"Stevenage","dest_time":"2121","operator":"GN"},{"depart":"2048","dest_name":"Welwyn Garden City","dest_time":"2121","operator":"GN"},{"depart":"2103","dest_name":"Stevenage","dest_time":"2151","operator":"GN"},{"depart":"2118","dest_name":"Welwyn Garden City","dest_time":"2151","operator":"GN"},{"depart":"2133","dest_name":"Stevenage","dest_time":"2221","operator":"GN"},{"depart":"2148","dest_name":"Welwyn Garden City","dest_time":"2221","operator":"GN"},{"depart":"2203","dest_name":"Stevenage","dest_time":"2251","operator":"GN"},{"depart":"2218","dest_name":"Welwyn Garden City","dest_time":"2251","operator":"GN"},{"depart":"2233","dest_name":"Stevenage","dest_time":"2321","operator":"GN"},{"depart":"2248","dest_name":"Welwyn Garden City","dest_time":"2321","operator":"GN"},{"depart":"2303","dest_name":"Stevenage","dest_time":"2351","operator":"GN"},{"depart":"2318","dest_name":"Welwyn Garden City","dest_time":"2351","operator":"GN"},{"depart":"2333","dest_name":"Hertford North","dest_time":"0009","operator":"GN"},{"depart":"2348","dest_name":"Welwyn Garden City","dest_time":"0021","operator":"GN"}]},"saturday":{"to_london":[{"depart":"0006","dest_name":"Moorgate","dest_time":"0024","operator":"GN"},{"depart":"0020","dest_name":"Moorgate","dest_time":"0038","operator":"GN"},{"depart":"0434","dest_name":"Kings Cross","dest_time":"0446","operator":"GN"},{"depart":"0504","dest_name":"Kings Cross","dest_time":"0514","operator":"GN"},{"depart":"0550","dest_name":"Moorgate","dest_time":"0608","operator":"GN"},{"depart":"0605","dest_name":"Moorgate","dest_time":"0623","operator":"GN"},{"depart":"0620","dest_name":"Moorgate","dest_time":"0638","operator":"GN"},{"depart":"0635","dest_name":"Moorgate","dest_time":"0653","operator":"GN"},{"depart":"0650","dest_name":"Moorgate","dest_time":"0708","operator":"GN"},{"depart":"0705","dest_name":"Moorgate","dest_time":"0723","operator":"GN"},{"depart":"0720","dest_name":"Moorgate","dest_time":"0738","operator":"GN"},{"depart":"0735","dest_name":"Moorgate","dest_time":"0753","operator":"GN"},{"depart":"0750","dest_name":"Moorgate","dest_time":"0808","operator":"GN"},{"depart":"0805","dest_name":"Moorgate","dest_time":"0823","operator":"GN"},{"depart":"0820","dest_name":"Moorgate","dest_time":"0838","operator":"GN"},{"depart":"0835","dest_name":"Moorgate","dest_time":"0853","operator":"GN"},{"depart":"0850","dest_name":"Moorgate","dest_time":"0908","operator":"GN"},{"depart":"0905","dest_name":"Moorgate","dest_time":"0923","operator":"GN"},{"depart":"0920","dest_name":"Moorgate","dest_time":"0938","operator":"GN"},{"depart":"0935","dest_name":"Moorgate","dest_time":"0953","operator":"GN"},{"depart":"0950","dest_name":"Moorgate","dest_time":"1008","operator":"GN"},{"depart":"1005","dest_name":"Moorgate","dest_time":"1023","operator":"GN"},{"depart":"1020","dest_name":"Moorgate","dest_time":"1038","operator":"GN"},{"depart":"1035","dest_name":"Moorgate","dest_time":"1053","operator":"GN"},{"depart":"1050","dest_name":"Moorgate","dest_time":"1108","operator":"GN"},{"depart":"1105","dest_name":"Moorgate","dest_time":"1123","operator":"GN"},{"depart":"1120","dest_name":"Moorgate","dest_time":"1138","operator":"GN"},{"depart":"1135","dest_name":"Moorgate","dest_time":"1153","operator":"GN"},{"depart":"1150","dest_name":"Moorgate","dest_time":"1208","operator":"GN"},{"depart":"1205","dest_name":"Moorgate","dest_time":"1223","operator":"GN"},{"depart":"1220","dest_name":"Moorgate","dest_time":"1238","operator":"GN"},{"depart":"1235","dest_name":"Moorgate","dest_time":"1253","operator":"GN"},{"depart":"1250","dest_name":"Moorgate","dest_time":"1308","operator":"GN"},{"depart":"1305","dest_name":"Moorgate","dest_time":"1323","operator":"GN"},{"depart":"1320","dest_name":"Moorgate","dest_time":"1338","operator":"GN"},{"depart":"1335","dest_name":"Moorgate","dest_time":"1353","operator":"GN"},{"depart":"1350","dest_name":"Moorgate","dest_time":"1408","operator":"GN"},{"depart":"1405","dest_name":"Moorgate","dest_time":"1423","operator":"GN"},{"depart":"1420","dest_name":"Moorgate","dest_time":"1438","operator":"GN"},{"depart":"1435","dest_name":"Moorgate","dest_time":"1453","operator":"GN"},{"depart":"1450","dest_name":"Moorgate","dest_time":"1508","operator":"GN"},{"depart":"1505","dest_name":"Moorgate","dest_time":"1523","operator":"GN"},{"depart":"1520","dest_name":"Moorgate","dest_time":"1538","operator":"GN"},{"depart":"1535","dest_name":"Moorgate","dest_time":"1553","operator":"GN"},{"depart":"1550","dest_name":"Moorgate","dest_time":"1608","operator":"GN"},{"depart":"1605","dest_name":"Moorgate","dest_time":"1623","operator":"GN"},{"depart":"1620","dest_name":"Moorgate","dest_time":"1638","operator":"GN"},{"depart":"1635","dest_name":"Moorgate","dest_time":"1653","operator":"GN"},{"depart":"1650","dest_name":"Moorgate","dest_time":"1708","operator":"GN"},{"depart":"1705","dest_name":"Moorgate","dest_time":"1723","operator":"GN"},{"depart":"1720","dest_name":"Moorgate","dest_time":"1738","operator":"GN"},{"depart":"1735","dest_name":"Moorgate","dest_time":"1753","operator":"GN"},{"depart":"1750","dest_name":"Moorgate","dest_time":"1808","operator":"GN"},{"depart":"1805","dest_name":"Moorgate","dest_time":"1823","operator":"GN"},{"depart":"1820","dest_name":"Moorgate","dest_time":"1838","operator":"GN"},{"depart":"1835","dest_name":"Moorgate","dest_time":"1853","operator":"GN"},{"depart":"1850","dest_name":"Moorgate","dest_time":"1908","operator":"GN"},{"depart":"1905","dest_name":"Moorgate","dest_time":"1923","operator":"GN"},{"depart":"1920","dest_name":"Moorgate","dest_time":"1938","operator":"GN"},{"depart":"1935","dest_name":"Moorgate","dest_time":"1953","operator":"GN"},{"depart":"1950","dest_name":"Moorgate","dest_time":"2008","operator":"GN"},{"depart":"2005","dest_name":"Moorgate","dest_time":"2023","operator":"GN"},{"depart":"2020","dest_name":"Moorgate","dest_time":"2038","operator":"GN"},{"depart":"2035","dest_name":"Moorgate","dest_time":"2053","operator":"GN"},{"depart":"2050","dest_name":"Moorgate","dest_time":"2108","operator":"GN"},{"depart":"2105","dest_name":"Moorgate","dest_time":"2123","operator":"GN"},{"depart":"2120","dest_name":"Moorgate","dest_time":"2138","operator":"GN"},{"depart":"2135","dest_name":"Moorgate","dest_time":"2153","operator":"GN"},{"depart":"2150","dest_name":"Moorgate","dest_time":"2208","operator":"GN"},{"depart":"2205","dest_name":"Moorgate","dest_time":"2223","operator":"GN"},{"depart":"2220","dest_name":"Moorgate","dest_time":"2238","operator":"GN"},{"depart":"2235","dest_name":"Moorgate","dest_time":"2253","operator":"GN"},{"depart":"2250","dest_name":"Moorgate","dest_time":"2308","operator":"GN"},{"depart":"2305","dest_name":"Moorgate","dest_time":"2323","operator":"GN"},{"depart":"2320","dest_name":"Moorgate","dest_time":"2338","operator":"GN"},{"depart":"2335","dest_name":"Moorgate","dest_time":"2353","operator":"GN"},{"depart":"2350","dest_name":"Moorgate","dest_time":"0008","operator":"GN"}],"from_london":[{"depart":"0003","dest_name":"Stevenage","dest_time":"0053","operator":"GN"},{"depart":"0018","dest_name":"Welwyn Garden City","dest_time":"0051","operator":"GN"},{"depart":"0033","dest_name":"Stevenage","dest_time":"0121","operator":"GN"},{"depart":"0048","dest_name":"Welwyn Garden City","dest_time":"0121","operator":"GN"},{"depart":"0119","dest_name":"Hertford North","dest_time":"0151","operator":"GN"},{"depart":"0515","dest_name":"Hertford North","dest_time":"0550","operator":"GN"},{"depart":"0533","dest_name":"Stevenage","dest_time":"0621","operator":"GN"},{"depart":"0603","dest_name":"Stevenage","dest_time":"0651","operator":"GN"},{"depart":"0618","dest_name":"Welwyn Garden City","dest_time":"0651","operator":"GN"},{"depart":"0633","dest_name":"Stevenage","dest_time":"0721","operator":"GN"},{"depart":"0648","dest_name":"Welwyn Garden City","dest_time":"0721","operator":"GN"},{"depart":"0703","dest_name":"Stevenage","dest_time":"0751","operator":"GN"},{"depart":"0718","dest_name":"Welwyn Garden City","dest_time":"0751","operator":"GN"},{"depart":"0733","dest_name":"Stevenage","dest_time":"0821","operator":"GN"},{"depart":"0748","dest_name":"Welwyn Garden City","dest_time":"0821","operator":"GN"},{"depart":"0803","dest_name":"Stevenage","dest_time":"0851","operator":"GN"},{"depart":"0818","dest_name":"Welwyn Garden City","dest_time":"0851","operator":"GN"},{"depart":"0832","dest_name":"Stevenage","dest_time":"0921","operator":"GN"},{"depart":"0848","dest_name":"Welwyn Garden City","dest_time":"0921","operator":"GN"},{"depart":"0903","dest_name":"Stevenage","dest_time":"0951","operator":"GN"},{"depart":"0918","dest_name":"Welwyn Garden City","dest_time":"0951","operator":"GN"},{"depart":"0933","dest_name":"Stevenage","dest_time":"1021","operator":"GN"},{"depart":"0948","dest_name":"Welwyn Garden City","dest_time":"1021","operator":"GN"},{"depart":"1003","dest_name":"Stevenage","dest_time":"1051","operator":"GN"},{"depart":"1018","dest_name":"Welwyn Garden City","dest_time":"1051","operator":"GN"},{"depart":"1033","dest_name":"Stevenage","dest_time":"1121","operator":"GN"},{"depart":"1048","dest_name":"Welwyn Garden City","dest_time":"1121","operator":"GN"},{"depart":"1103","dest_name":"Stevenage","dest_time":"1151","operator":"GN"},{"depart":"1118","dest_name":"Welwyn Garden City","dest_time":"1151","operator":"GN"},{"depart":"1133","dest_name":"Stevenage","dest_time":"1221","operator":"GN"},{"depart":"1148","dest_name":"Welwyn Garden City","dest_time":"1221","operator":"GN"},{"depart":"1203","dest_name":"Stevenage","dest_time":"1251","operator":"GN"},{"depart":"1218","dest_name":"Welwyn Garden City","dest_time":"1251","operator":"GN"},{"depart":"1233","dest_name":"Stevenage","dest_time":"1321","operator":"GN"},{"depart":"1248","dest_name":"Welwyn Garden City","dest_time":"1321","operator":"GN"},{"depart":"1303","dest_name":"Stevenage","dest_time":"1351","operator":"GN"},{"depart":"1318","dest_name":"Welwyn Garden City","dest_time":"1351","operator":"GN"},{"depart":"1333","dest_name":"Stevenage","dest_time":"1421","operator":"GN"},{"depart":"1348","dest_name":"Welwyn Garden City","dest_time":"1421","operator":"GN"},{"depart":"1403","dest_name":"Stevenage","dest_time":"1451","operator":"GN"},{"depart":"1418","dest_name":"Welwyn Garden City","dest_time":"1451","operator":"GN"},{"depart":"1433","dest_name":"Stevenage","dest_time":"1521","operator":"GN"},{"depart":"1448","dest_name":"Welwyn Garden City","dest_time":"1521","operator":"GN"},{"depart":"1503","dest_name":"Stevenage","dest_time":"1551","operator":"GN"},{"depart":"1518","dest_name":"Welwyn Garden City","dest_time":"1551","operator":"GN"},{"depart":"1533","dest_name":"Stevenage","dest_time":"1621","operator":"GN"},{"depart":"1548","dest_name":"Welwyn Garden City","dest_time":"1621","operator":"GN"},{"depart":"1603","dest_name":"Stevenage","dest_time":"1651","operator":"GN"},{"depart":"1618","dest_name":"Welwyn Garden City","dest_time":"1651","operator":"GN"},{"depart":"1633","dest_name":"Stevenage","dest_time":"1721","operator":"GN"},{"depart":"1648","dest_name":"Welwyn Garden City","dest_time":"1721","operator":"GN"},{"depart":"1703","dest_name":"Stevenage","dest_time":"1751","operator":"GN"},{"depart":"1718","dest_name":"Welwyn Garden City","dest_time":"1751","operator":"GN"},{"depart":"1733","dest_name":"Stevenage","dest_time":"1821","operator":"GN"},{"depart":"1748","dest_name":"Welwyn Garden City","dest_time":"1821","operator":"GN"},{"depart":"1803","dest_name":"Stevenage","dest_time":"1851","operator":"GN"},{"depart":"1818","dest_name":"Welwyn Garden City","dest_time":"1851","operator":"GN"},{"depart":"1833","dest_name":"Stevenage","dest_time":"1921","operator":"GN"},{"depart":"1848","dest_name":"Welwyn Garden City","dest_time":"1921","operator":"GN"},{"depart":"1903","dest_name":"Stevenage","dest_time":"1951","operator":"GN"},{"depart":"1918","dest_name":"Welwyn Garden City","dest_time":"1951","operator":"GN"},{"depart":"1933","dest_name":"Stevenage","dest_time":"2021","operator":"GN"},{"depart":"1948","dest_name":"Welwyn Garden City","dest_time":"2021","operator":"GN"},{"depart":"2003","dest_name":"Stevenage","dest_time":"2051","operator":"GN"},{"depart":"2018","dest_name":"Welwyn Garden City","dest_time":"2051","operator":"GN"},{"depart":"2033","dest_name":"Stevenage","dest_time":"2121","operator":"GN"},{"depart":"2048","dest_name":"Welwyn Garden City","dest_time":"2121","operator":"GN"},{"depart":"2103","dest_name":"Stevenage","dest_time":"2151","operator":"GN"},{"depart":"2118","dest_name":"Welwyn Garden City","dest_time":"2151","operator":"GN"},{"depart":"2133","dest_name":"Stevenage","dest_time":"2221","operator":"GN"},{"depart":"2148","dest_name":"Welwyn Garden City","dest_time":"2221","operator":"GN"},{"depart":"2203","dest_name":"Stevenage","dest_time":"2251","operator":"GN"},{"depart":"2218","dest_name":"Welwyn Garden City","dest_time":"2251","operator":"GN"},{"depart":"2233","dest_name":"Stevenage","dest_time":"2321","operator":"GN"},{"depart":"2247","dest_name":"Welwyn Garden City","dest_time":"2321","operator":"GN"},{"depart":"2303","dest_name":"Stevenage","dest_time":"2351","operator":"GN"},{"depart":"2318","dest_name":"Welwyn Garden City","dest_time":"2351","operator":"GN"},{"depart":"2333","dest_name":"Hertford North","dest_time":"0009","operator":"GN"},{"depart":"2348","dest_name":"Welwyn Garden City","dest_time":"0021","operator":"GN"}]},"sunday":{"to_london":[{"depart":"0006","dest_name":"Moorgate","dest_time":"0024","operator":"GN"},{"depart":"0020","dest_name":"Moorgate","dest_time":"0038","operator":"GN"},{"depart":"0650","dest_name":"Moorgate","dest_time":"0708","operator":"GN"},{"depart":"0705","dest_name":"Moorgate","dest_time":"0723","operator":"GN"},{"depart":"0720","dest_name":"Moorgate","dest_time":"0738","operator":"GN"},{"depart":"0735","dest_name":"Moorgate","dest_time":"0753","operator":"GN"},{"depart":"0750","dest_name":"Moorgate","dest_time":"0808","operator":"GN"},{"depart":"0805","dest_name":"Moorgate","dest_time":"0823","operator":"GN"},{"depart":"0820","dest_name":"Moorgate","dest_time":"0838","operator":"GN"},{"depart":"0835","dest_name":"Moorgate","dest_time":"0853","operator":"GN"},{"depart":"0850","dest_name":"Moorgate","dest_time":"0908","operator":"GN"},{"depart":"0905","dest_name":"Moorgate","dest_time":"0923","operator":"GN"},{"depart":"0920","dest_name":"Moorgate","dest_time":"0938","operator":"GN"},{"depart":"0935","dest_name":"Moorgate","dest_time":"0953","operator":"GN"},{"depart":"0950","dest_name":"Moorgate","dest_time":"1008","operator":"GN"},{"depart":"1005","dest_name":"Moorgate","dest_time":"1023","operator":"GN"},{"depart":"1020","dest_name":"Moorgate","dest_time":"1038","operator":"GN"},{"depart":"1035","dest_name":"Moorgate","dest_time":"1053","operator":"GN"},{"depart":"1050","dest_name":"Moorgate","dest_time":"1108","operator":"GN"},{"depart":"1105","dest_name":"Moorgate","dest_time":"1123","operator":"GN"},{"depart":"1120","dest_name":"Moorgate","dest_time":"1138","operator":"GN"},{"depart":"1135","dest_name":"Moorgate","dest_time":"1153","operator":"GN"},{"depart":"1150","dest_name":"Moorgate","dest_time":"1208","operator":"GN"},{"depart":"1205","dest_name":"Moorgate","dest_time":"1223","operator":"GN"},{"depart":"1220","dest_name":"Moorgate","dest_time":"1238","operator":"GN"},{"depart":"1235","dest_name":"Moorgate","dest_time":"1253","operator":"GN"},{"depart":"1250","dest_name":"Moorgate","dest_time":"1308","operator":"GN"},{"depart":"1305","dest_name":"Moorgate","dest_time":"1323","operator":"GN"},{"depart":"1320","dest_name":"Moorgate","dest_time":"1338","operator":"GN"},{"depart":"1335","dest_name":"Moorgate","dest_time":"1353","operator":"GN"},{"depart":"1350","dest_name":"Moorgate","dest_time":"1408","operator":"GN"},{"depart":"1405","dest_name":"Moorgate","dest_time":"1423","operator":"GN"},{"depart":"1420","dest_name":"Moorgate","dest_time":"1438","operator":"GN"},{"depart":"1435","dest_name":"Moorgate","dest_time":"1453","operator":"GN"},{"depart":"1450","dest_name":"Moorgate","dest_time":"1508","operator":"GN"},{"depart":"1505","dest_name":"Moorgate","dest_time":"1523","operator":"GN"},{"depart":"1520","dest_name":"Moorgate","dest_time":"1538","operator":"GN"},{"depart":"1535","dest_name":"Moorgate","dest_time":"1553","operator":"GN"},{"depart":"1550","dest_name":"Moorgate","dest_time":"1608","operator":"GN"},{"depart":"1605","dest_name":"Moorgate","dest_time":"1623","operator":"GN"},{"depart":"1620","dest_name":"Moorgate","dest_time":"1638","operator":"GN"},{"depart":"1635","dest_name":"Moorgate","dest_time":"1653","operator":"GN"},{"depart":"1650","dest_name":"Moorgate","dest_time":"1708","operator":"GN"},{"depart":"1705","dest_name":"Moorgate","dest_time":"1723","operator":"GN"},{"depart":"1720","dest_name":"Moorgate","dest_time":"1738","operator":"GN"},{"depart":"1735","dest_name":"Moorgate","dest_time":"1753","operator":"GN"},{"depart":"1750","dest_name":"Moorgate","dest_time":"1808","operator":"GN"},{"depart":"1805","dest_name":"Moorgate","dest_time":"1823","operator":"GN"},{"depart":"1820","dest_name":"Moorgate","dest_time":"1838","operator":"GN"},{"depart":"1835","dest_name":"Moorgate","dest_time":"1853","operator":"GN"},{"depart":"1850","dest_name":"Moorgate","dest_time":"1908","operator":"GN"},{"depart":"1905","dest_name":"Moorgate","dest_time":"1923","operator":"GN"},{"depart":"1920","dest_name":"Moorgate","dest_time":"1938","operator":"GN"},{"depart":"1935","dest_name":"Moorgate","dest_time":"1953","operator":"GN"},{"depart":"1950","dest_name":"Moorgate","dest_time":"2008","operator":"GN"},{"depart":"2005","dest_name":"Moorgate","dest_time":"2023","operator":"GN"},{"depart":"2020","dest_name":"Moorgate","dest_time":"2038","operator":"GN"},{"depart":"2035","dest_name":"Moorgate","dest_time":"2053","operator":"GN"},{"depart":"2050","dest_name":"Moorgate","dest_time":"2108","operator":"GN"},{"depart":"2105","dest_name":"Moorgate","dest_time":"2123","operator":"GN"},{"depart":"2120","dest_name":"Moorgate","dest_time":"2138","operator":"GN"},{"depart":"2135","dest_name":"Moorgate","dest_time":"2153","operator":"GN"},{"depart":"2150","dest_name":"Moorgate","dest_time":"2208","operator":"GN"},{"depart":"2205","dest_name":"Moorgate","dest_time":"2223","operator":"GN"},{"depart":"2220","dest_name":"Moorgate","dest_time":"2238","operator":"GN"},{"depart":"2235","dest_name":"Moorgate","dest_time":"2253","operator":"GN"},{"depart":"2250","dest_name":"Moorgate","dest_time":"2308","operator":"GN"},{"depart":"2305","dest_name":"Moorgate","dest_time":"2323","operator":"GN"},{"depart":"2320","dest_name":"Moorgate","dest_time":"2338","operator":"GN"},{"depart":"2335","dest_name":"Moorgate","dest_time":"2353","operator":"GN"},{"depart":"2350","dest_name":"Moorgate","dest_time":"0008","operator":"GN"}],"from_london":[{"depart":"0003","dest_name":"Stevenage","dest_time":"0053","operator":"GN"},{"depart":"0018","dest_name":"Welwyn Garden City","dest_time":"0051","operator":"GN"},{"depart":"0033","dest_name":"Hertford North","dest_time":"0109","operator":"GN"},{"depart":"0048","dest_name":"Welwyn Garden City","dest_time":"0121","operator":"GN"},{"depart":"0603","dest_name":"Hertford North","dest_time":"0638","operator":"GN"},{"depart":"0633","dest_name":"Stevenage","dest_time":"0721","operator":"GN"},{"depart":"0648","dest_name":"Welwyn Garden City","dest_time":"0723","operator":"GN"},{"depart":"0703","dest_name":"Stevenage","dest_time":"0751","operator":"GN"},{"depart":"0718","dest_name":"Welwyn Garden City","dest_time":"0753","operator":"GN"},{"depart":"0733","dest_name":"Stevenage","dest_time":"0821","operator":"GN"},{"depart":"0748","dest_name":"Welwyn Garden City","dest_time":"0821","operator":"GN"},{"depart":"0803","dest_name":"Stevenage","dest_time":"0851","operator":"GN"},{"depart":"0818","dest_name":"Welwyn Garden City","dest_time":"0851","operator":"GN"},{"depart":"0833","dest_name":"Stevenage","dest_time":"0921","operator":"GN"},{"depart":"0848","dest_name":"Welwyn Garden City","dest_time":"0921","operator":"GN"},{"depart":"0903","dest_name":"Stevenage","dest_time":"0951","operator":"GN"},{"depart":"0918","dest_name":"Welwyn Garden City","dest_time":"0951","operator":"GN"},{"depart":"0933","dest_name":"Stevenage","dest_time":"1021","operator":"GN"},{"depart":"0948","dest_name":"Welwyn Garden City","dest_time":"1021","operator":"GN"},{"depart":"1003","dest_name":"Stevenage","dest_time":"1051","operator":"GN"},{"depart":"1018","dest_name":"Welwyn Garden City","dest_time":"1051","operator":"GN"},{"depart":"1033","dest_name":"Stevenage","dest_time":"1121","operator":"GN"},{"depart":"1048","dest_name":"Welwyn Garden City","dest_time":"1121","operator":"GN"},{"depart":"1103","dest_name":"Stevenage","dest_time":"1151","operator":"GN"},{"depart":"1118","dest_name":"Welwyn Garden City","dest_time":"1151","operator":"GN"},{"depart":"1133","dest_name":"Stevenage","dest_time":"1221","operator":"GN"},{"depart":"1148","dest_name":"Welwyn Garden City","dest_time":"1221","operator":"GN"},{"depart":"1203","dest_name":"Stevenage","dest_time":"1251","operator":"GN"},{"depart":"1218","dest_name":"Welwyn Garden City","dest_time":"1251","operator":"GN"},{"depart":"1233","dest_name":"Stevenage","dest_time":"1321","operator":"GN"},{"depart":"1248","dest_name":"Welwyn Garden City","dest_time":"1321","operator":"GN"},{"depart":"1303","dest_name":"Stevenage","dest_time":"1351","operator":"GN"},{"depart":"1318","dest_name":"Welwyn Garden City","dest_time":"1351","operator":"GN"},{"depart":"1333","dest_name":"Stevenage","dest_time":"1421","operator":"GN"},{"depart":"1348","dest_name":"Welwyn Garden City","dest_time":"1421","operator":"GN"},{"depart":"1403","dest_name":"Stevenage","dest_time":"1451","operator":"GN"},{"depart":"1418","dest_name":"Welwyn Garden City","dest_time":"1451","operator":"GN"},{"depart":"1433","dest_name":"Stevenage","dest_time":"1521","operator":"GN"},{"depart":"1448","dest_name":"Welwyn Garden City","dest_time":"1521","operator":"GN"},{"depart":"1503","dest_name":"Stevenage","dest_time":"1551","operator":"GN"},{"depart":"1518","dest_name":"Welwyn Garden City","dest_time":"1551","operator":"GN"},{"depart":"1533","dest_name":"Stevenage","dest_time":"1621","operator":"GN"},{"depart":"1548","dest_name":"Welwyn Garden City","dest_time":"1621","operator":"GN"},{"depart":"1603","dest_name":"Stevenage","dest_time":"1651","operator":"GN"},{"depart":"1618","dest_name":"Welwyn Garden City","dest_time":"1651","operator":"GN"},{"depart":"1633","dest_name":"Stevenage","dest_time":"1721","operator":"GN"},{"depart":"1648","dest_name":"Welwyn Garden City","dest_time":"1721","operator":"GN"},{"depart":"1703","dest_name":"Stevenage","dest_time":"1751","operator":"GN"},{"depart":"1718","dest_name":"Welwyn Garden City","dest_time":"1751","operator":"GN"},{"depart":"1733","dest_name":"Stevenage","dest_time":"1821","operator":"GN"},{"depart":"1748","dest_name":"Welwyn Garden City","dest_time":"1821","operator":"GN"},{"depart":"1803","dest_name":"Stevenage","dest_time":"1851","operator":"GN"},{"depart":"1818","dest_name":"Welwyn Garden City","dest_time":"1851","operator":"GN"},{"depart":"1833","dest_name":"Stevenage","dest_time":"1921","operator":"GN"},{"depart":"1848","dest_name":"Welwyn Garden City","dest_time":"1921","operator":"GN"},{"depart":"1903","dest_name":"Stevenage","dest_time":"1951","operator":"GN"},{"depart":"1918","dest_name":"Welwyn Garden City","dest_time":"1951","operator":"GN"},{"depart":"1933","dest_name":"Stevenage","dest_time":"2021","operator":"GN"},{"depart":"1948","dest_name":"Welwyn Garden City","dest_time":"2021","operator":"GN"},{"depart":"2003","dest_name":"Stevenage","dest_time":"2051","operator":"GN"},{"depart":"2018","dest_name":"Welwyn Garden City","dest_time":"2051","operator":"GN"},{"depart":"2033","dest_name":"Stevenage","dest_time":"2121","operator":"GN"},{"depart":"2048","dest_name":"Welwyn Garden City","dest_time":"2121","operator":"GN"},{"depart":"2103","dest_name":"Stevenage","dest_time":"2151","operator":"GN"},{"depart":"2118","dest_name":"Welwyn Garden City","dest_time":"2151","operator":"GN"},{"depart":"2133","dest_name":"Stevenage","dest_time":"2221","operator":"GN"},{"depart":"2148","dest_name":"Welwyn Garden City","dest_time":"2221","operator":"GN"},{"depart":"2203","dest_name":"Stevenage","dest_time":"2251","operator":"GN"},{"depart":"2218","dest_name":"Welwyn Garden City","dest_time":"2251","operator":"GN"},{"depart":"2233","dest_name":"Stevenage","dest_time":"2321","operator":"GN"},{"depart":"2247","dest_name":"Welwyn Garden City","dest_time":"2321","operator":"GN"},{"depart":"2303","dest_name":"Stevenage","dest_time":"2351","operator":"GN"},{"depart":"2317","dest_name":"Welwyn Garden City","dest_time":"2351","operator":"GN"},{"depart":"2333","dest_name":"Hertford North","dest_time":"0009","operator":"GN"},{"depart":"2348","dest_name":"Welwyn Garden City","dest_time":"0021","operator":"GN"}]}};
+
+function getDayType() {
+  const d = new Date().getDay();
+  if (d === 0) return "sunday";
+  if (d === 6) return "saturday";
+  return "weekday";
+}
+
+function getNowMinutes() {
+  const n = new Date();
+  return n.getHours() * 60 + n.getMinutes();
+}
+
+function timeToMinutes(hhmm) {
+  return parseInt(hhmm.slice(0, 2), 10) * 60 + parseInt(hhmm.slice(2), 10);
+}
+
+function minutesUntil(departHHMM, nowMinutes) {
+  let diff = timeToMinutes(departHHMM) - nowMinutes;
+  if (diff < -120) diff += 1440;
+  return diff;
+}
+
+function formatTime(hhmm) {
+  return hhmm.slice(0, 2) + ":" + hhmm.slice(2);
+}
+
+function formatCountdown(mins) {
+  if (mins === 0) return "NOW";
+  return mins + " min";
+}
+
+function getNext5(direction) {
+  const dayType = getDayType();
+  const trains = TIMETABLE[dayType][direction];
+  const now = getNowMinutes();
+  return trains
+    .map(t => ({ ...t, minutesAway: minutesUntil(t.depart, now) }))
+    .filter(t => t.minutesAway >= 0)
+    .sort((a, b) => a.minutesAway - b.minutesAway)
+    .slice(0, 5);
+}
+
+function renderPanel(direction) {
+  const next5 = getNext5(direction);
+  const container = document.getElementById("panel-" + direction);
+  container.innerHTML = "";
+
+  if (next5.length === 0) {
+    container.innerHTML = '<div class="no-trains">No more trains today</div>';
+    return;
+  }
+
+  next5.forEach((t, idx) => {
+    const row = document.createElement("div");
+    row.className = "train-row" + (idx === 0 ? " soonest" : "");
+
+    const urgent = t.minutesAway <= 2;
+    const destArr = t.dest_time
+      ? `<div class="dest-arr">arr ${formatTime(t.dest_time)}</div>`
+      : "";
+
+    row.innerHTML =
+      `<span class="depart">${formatTime(t.depart)}</span>` +
+      `<span class="dest-block">` +
+        `<div class="dest-name">${t.dest_name ?? "Unknown"}</div>` +
+        destArr +
+      `</span>` +
+      `<span class="badge badge-${t.operator}">${t.operator}</span>` +
+      `<span class="countdown${urgent ? " urgent" : ""}">${formatCountdown(t.minutesAway)}</span>`;
+
+    container.appendChild(row);
+  });
+}
+
+function renderAll() {
+  renderPanel("to_london");
+  renderPanel("from_london");
+}
+
+function updateClock() {
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2, "0");
+  const mm = String(now.getMinutes()).padStart(2, "0");
+  const ss = String(now.getSeconds()).padStart(2, "0");
+  document.getElementById("clock").textContent = hh + ":" + mm + ":" + ss;
+
+  const dayType = getDayType();
+  const dayNames = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+  const label = dayNames[now.getDay()] + " — " +
+    dayType.charAt(0).toUpperCase() + dayType.slice(1) + " timetable";
+  document.getElementById("day-label").textContent = label;
+}
+
+renderAll();
+updateClock();
+setInterval(updateClock, 1000);
+setInterval(renderAll, 30_000);
+</script>
+</body>
+</html>
